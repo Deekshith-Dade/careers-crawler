@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from playwright.sync_api import sync_playwright
+from companies.meta import MetaCareersScraper
 from companies.tiktok import TikTokCareersScrapper
 from dotenv import load_dotenv
 
@@ -118,23 +119,13 @@ def scrape_tiktok_careers_page(url):
 
 
 def main():
-    BASE_URL = "https://lifeattiktok.com"
-    # keyword = "software+engineer"
-    # recruitment_id_list=""
-    # job_category_id_list=""
-    # subject_id_list=""
-    # locations = []
-    # location_code_list = "%".join([loc.value for loc in locations])
-    # limit=12
-    # offset=0
-    # url = f"{BASE_URL}keyword={keyword}&recruitment_id_list={recruitment_id_list}&job_category_id_list={job_category_id_list}&subject_id_list={subject_id_list}&location_code_list={location_code_list}"
-    
-    # print(f"Scraping URL: {url}\n")
-    # jobs_found = scrape_tiktok_careers_page(url)
-    # breakpoint()
-    scrapper = TikTokCareersScrapper(base_url=BASE_URL)
-    # scrapper.scrape_and_save_jobs(max_jobs=10)
-    # scrapper.update_applications()
+    TIKTOK_BASE_URL = "https://lifeattiktok.com"
+    META_BASE_URL = "https://www.metacareers.com/jobsearch"
+
+    # scrapper = TikTokCareersScrapper(base_url=TIKTOK_BASE_URL)
+    scrapper = MetaCareersScraper(base_url=META_BASE_URL)
+    # scrapper.scrape_and_save_jobs(max_jobs=None)
+    scrapper.update_applications(find_status=True)
     scrapper.filter_and_find_applications()
     
     

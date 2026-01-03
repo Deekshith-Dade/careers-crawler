@@ -2,39 +2,40 @@ import os
 import ast
 from playwright.sync_api import sync_playwright
 import pandas as pd
+from rich.console import Console
+from rich.table import Table
+from .base import BaseCareersScraper
 
 
 BASE_URL = "https://lifeattiktok.com"
 
-class TikTokCareersScrapper:
+class TikTokCareersScrapper(BaseCareersScraper):
     def __init__(self, base_url=BASE_URL, keyword="software engineer", recruitment_id_list="", job_category_id_list="", subject_id_list="", locations=None):
-        self.base_url = base_url
+        # TikTok-specific default locations
+        default_locations = [
+            "Austin", "Chicago", "Los Angeles", "New York", "San Francisco", "San Jose", "Seattle", "Washington DC"
+        ] if locations is None else locations
+        
+        # Initialize base class
+        super().__init__(
+            company_name="tiktok",
+            base_url=base_url,
+            locations=default_locations
+        )
+        
+        # TikTok-specific attributes
         self.keyword = keyword
         self.recruitment_id_list = recruitment_id_list
         self.job_category_id_list = job_category_id_list
         self.subject_id_list = subject_id_list
-        self.file_path = "data/tiktok_careers/tiktok_jobs.csv"
-        os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
-
-        self.locations = [
-            "Austin", "Chicago", "Los Angeles", "New York", "San Francisco", "San Jose", "Seattle", "Washington DC"
-        ] if locations is None else locations
         self.primary_url = f"{self.base_url}/search?keyword={self.keyword.replace(' ', '+')}&recruitment_id_list={self.recruitment_id_list}&job_category_id_list={self.job_category_id_list}&subject_id_list={self.subject_id_list}&location_code_list="
 
-        # loads a csv file to compare previous scraping and checks if applied
-        if os.path.exists(self.file_path):
-            self.jobs_df = pd.read_csv(self.file_path, dtype={"id": str})
-        else:
-            self.jobs_df = None
-
-        # also scrapes the applied page and compareds the job and updates the csv file
+        # Also scrapes the applied page and compares the job and updates the csv file
         self.applications_url = f"{self.base_url}/position/application"
         self.login_email = os.getenv("TIKTOK_LOGIN_EMAIL")
         self.login_password = os.getenv("TIKTOK_LOGIN_PASSWORD")
         
-        # Shows id of the jobs left to apply
-        # job filters
-        self.location_filters = self.locations
+        # Override filters with TikTok-specific filters
         self.name_filters = {
             "include": [
                 "Software Engineer",
@@ -73,14 +74,32 @@ class TikTokCareersScrapper:
         filtered_df = filtered_df[final_mask]
         filter_indices = []
         for index, row in filtered_df.iterrows():
-            city_name = ast.literal_eval(row.city_info).get("en_name", "")
+            # Handle both string and dict types for city_info
+            city_info = row.city_info
+            if isinstance(city_info, str):
+                city_info = ast.literal_eval(city_info)
+            city_name = city_info.get("en_name", "") if isinstance(city_info, dict) else ""
             if city_name in self.location_filters:
                 filter_indices.append(index)
         
         final_filtered_df = filtered_df.loc[filter_indices]
-        print(f"Total filtered applications found: {len(final_filtered_df)}")
-        for index, row in final_filtered_df.iterrows():
-            print(f"  - {row['title']} | Apply Link: {self.base_url}/search/{row['id']}")
+        console = Console()
+        
+        if len(final_filtered_df) > 0:
+            table = Table(title=f"Filtered Applications Found: {len(final_filtered_df)}", show_header=True, header_style="bold magenta")
+            table.add_column("Job ID", style="cyan", no_wrap=True)
+            table.add_column("Role", style="green")
+            table.add_column("Apply Link", style="blue", no_wrap=False)
+            
+            for index, row in final_filtered_df.iterrows():
+                job_code = str(row['code'])
+                role = row['title']
+                apply_link = f"{self.base_url}/search/{row['id']}"
+                table.add_row(job_code, role, apply_link)
+            
+            console.print(table)
+        else:
+            console.print(f"[yellow]No filtered applications found.[/yellow]")
 
 
     def update_applications(self):
