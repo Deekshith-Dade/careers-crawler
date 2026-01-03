@@ -29,6 +29,10 @@ class MetaCareersScraper(BaseCareersScraper):
             locations=locations
         )
         
+        # Ensure description column is string type after loading
+        if self.jobs_df is not None and 'description' in self.jobs_df.columns:
+            self.jobs_df['description'] = self.jobs_df['description'].astype(str).replace('nan', '')
+        
         default_locations = [
             "Bellevue, WA"
         ]
@@ -53,11 +57,11 @@ class MetaCareersScraper(BaseCareersScraper):
                 # "2025",
                 # "Contract",
                 # "Senior",
-                # "Principal",
-                # "Lead",
-                # "Staff",
+                "Android",
+                "Leader",
+                "Manager",
                 "ios",
-                # "sr",
+                "os",
             ]
         }
         self.qualification_filters = {
@@ -94,15 +98,17 @@ class MetaCareersScraper(BaseCareersScraper):
                     json_data = json.loads(script_content)
 
                     minimum_qualifications = self._find_prospective_keys_in_json(json_data, "minimum_qualifications")
-                    breakpoint()
                     preferred_qualifications = self._find_prospective_keys_in_json(json_data, "preferred_qualifications")
                     responsibilities = self._find_prospective_keys_in_json(json_data, "responsibilities")
-                    qualifications = minimum_qualifications.extend(preferred_qualifications)
-                    qualifications.extend(responsibilities)
-                    description = " ".join(qualifications)
+                    qualifications = []
+                    qualifications.extend([item['item'] for item in minimum_qualifications])
+                    qualifications.extend([item['item'] for item in preferred_qualifications])
+                    qualifications.extend([item['item'] for item in responsibilities])
+                    description = "\n".join(qualifications)
                     return description
             except Exception as e:
                 continue
+        return None
 
     def scrape_careers_page(self, max_jobs=None):
         """
@@ -340,13 +346,18 @@ class MetaCareersScraper(BaseCareersScraper):
                         if applied:
                             total_updated += 1
                     self.jobs_df.at[index, 'applied'] = applied
-                    if len(description) == 0:
+                    # Check if description is NaN or empty string
+                    if pd.isna(description) or (isinstance(description, str) and (description == 'nan' or len(description) == 0)):
                         description = self.find_description_in_page(page)
-                        breakpoint()
-                        self.jobs_df.at[index, 'description'] = description
+                        print(f"Description: {description}")
+                        if description:
+                            self.jobs_df.at[index, 'description'] = str(description)
                 
                 browser.close()
             
+            # Ensure description column is string type before saving
+            if 'description' in self.jobs_df.columns:
+                self.jobs_df['description'] = self.jobs_df['description'].astype(str).replace('nan', '')
             # Save the updated dataframe to CSV after all checks are done
             self.jobs_df.to_csv(self.file_path, index=False)
             print(f"Updated application status for {total_updated} jobs and saved to {self.file_path}")
@@ -416,6 +427,9 @@ class MetaCareersScraper(BaseCareersScraper):
                     self.jobs_df = pd.concat([self.jobs_df, new_jobs_df], ignore_index=True)
                 else:
                     self.jobs_df = new_jobs_df
+                # Ensure description column is string type after concat
+                if 'description' in self.jobs_df.columns:
+                    self.jobs_df['description'] = self.jobs_df['description'].astype(str).replace('nan', '')
                 self.jobs_df.to_csv(self.file_path, index=False)
                 print(f"Updated {len(new_jobs)} new jobs to {self.file_path}")
             except Exception as e:

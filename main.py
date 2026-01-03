@@ -125,8 +125,9 @@ def main():
     # scrapper = TikTokCareersScrapper(base_url=TIKTOK_BASE_URL)
     scrapper = MetaCareersScraper(base_url=META_BASE_URL)
     # scrapper.scrape_and_save_jobs(max_jobs=None)
-    scrapper.update_applications(find_status=True)
-    scrapper.filter_and_find_applications()
+    # scrapper.update_applications(find_status=True)
+    # scrapper.filter_and_find_applications()
+    scrapper.print_application_details()
     
     
 
